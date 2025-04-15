@@ -38,6 +38,10 @@ function M.apply_to_config(config, user_opts)
 	-- Store the final merged options back into the toggle_terminal module
 	toggle_terminal.opts = final_opts
 
+	if not config.keys then
+		config.keys = {}
+	end
+
 	table.insert(config.keys, {
 		key = final_opts.key,
 		mods = final_opts.mods,
