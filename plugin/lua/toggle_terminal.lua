@@ -55,21 +55,23 @@ local function get_tab_state_from_json(tab_id)
 		return nil
 	end
 
-	local success_decode, tab_state_table = pcall(wezterm.json_decode, content)
+	local success_decode, tab_state_table = pcall(wezterm.json_parse, content)
 
 	if success_decode and tab_state_table then
 		return tab_state_table
 	else
-		wezterm.log_error("Failed to decode JSON from file: " .. file_path .. " Error: " .. tostring(tab_state_table))
-		return nil -- decoding failure
+		wezterm.log_error("Failed to parse JSON from file: " .. file_path .. " Error: " .. tostring(tab_state_table)) -- tab_state_table holds the error message here
+		return nil -- parsing failure
 	end
 end
 
 local function get_tab_state(tab_id)
 	if not tab_states[tab_id] then
 		local tab_table = get_tab_state_from_json(tab_id)
-		if tab_table and next(tab_table.state_table) ~= nil then
-			tab_states[tab_id] = tab_table.state_table
+		if tab_table and tab_table.state_table then
+			if next(tab_table.state_table) ~= nil then
+				tab_states[tab_id] = tab_table.state_table
+			end
 		else
 			wezterm.log_info("Initializing state for tab_id: " .. tab_id)
 			tab_states[tab_id] = {
