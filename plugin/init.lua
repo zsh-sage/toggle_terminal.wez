@@ -1,29 +1,5 @@
 local wezterm = require("wezterm")
-
-local function findPluginPackagePath(myProject)
-	local separator = package.config:sub(1, 1) == "\\" and "\\" or "/"
-	for _, v in ipairs(wezterm.plugin.list()) do
-		if v.url == myProject then
-			return v.plugin_dir .. separator .. "plugin" .. separator .. "?.lua"
-		end
-	end
-
-	return nil
-end
-
-local plugin_path_pattern = findPluginPackagePath("https://github.com/zsh-sage/toggle_terminal.wez")
-
-if not plugin_path_pattern then
-	-- Throw an error if the plugin path couldn't be determined
-	error(
-		"Could not find plugin path for 'https://github.com/zsh-sage/toggle_terminal.wez'. "
-			.. "Please ensure the plugin is correctly registered in your wezterm config with this exact URL."
-	)
-end
-
-package.path = package.path .. ";" .. plugin_path_pattern
-
-local toggle_terminal = require("lua.toggle_terminal")
+local dev = wezterm.plugin.require("https://github.com/chrisgve/dev.wezterm")
 
 local M = {}
 
@@ -50,6 +26,13 @@ end
 
 ---@param user_opts table|nil Optional table of user overrides for the toggle terminal options.
 function M.apply_to_config(config, user_opts)
+	local opts = { keywords = { "Development", "toggle_terminal" }, auto = true }
+	-- local opts = { keywords = { "https", "zsh-sage", "toggle_terminal" }, auto = true }
+
+	dev.setup(opts)
+
+	local toggle_terminal = require("lua.toggle_terminal")
+
 	local final_opts = deep_merge_tables(toggle_terminal.opts, user_opts)
 
 	-- Store the final merged options back into the toggle_terminal module
