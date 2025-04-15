@@ -30,26 +30,63 @@ M.opts = {
 local tab_states = {} -- { [tab_id] = { pane_id = -1, invoker_id = -1, zoomed = false  }, ... }
 
 -- Get or initialize state for a tab_id
+
+local function get_toggle_state_file_path(tab_id)
+	local tmp_dir = wezterm.config_dir .. "/tmp"
+	return string.format("%s/wezterm_toggle_pane_tab_%s.json", tmp_dir, tab_id)
+end
+
+local function get_tab_state_from_json(tab_id)
+	local file_path = get_toggle_state_file_path(tab_id)
+
+	local file, err = io.open(file_path, "r")
+	if not file then
+		wezterm.log_info(
+			"Could not open state file for reading (may not exist yet): " .. file_path .. " Error: " .. tostring(err)
+		)
+		return nil -- file can't be opened
+	end
+
+	local content = file:read("*a")
+	file:close()
+
+	if not content then
+		wezterm.log_error("Failed to read content from state file: " .. file_path)
+		return nil
+	end
+
+	local success_decode, tab_state_table = pcall(wezterm.json_decode, content)
+
+	if success_decode and tab_state_table then
+		return tab_state_table
+	else
+		wezterm.log_error("Failed to decode JSON from file: " .. file_path .. " Error: " .. tostring(tab_state_table))
+		return nil -- decoding failure
+	end
+end
+
 local function get_tab_state(tab_id)
 	if not tab_states[tab_id] then
-		wezterm.log_info("Initializing state for tab_id: " .. tab_id)
-		tab_states[tab_id] = {
-			pane_id = -1,
-			invoker_id = -1,
-			zoomed = false,
-		}
+		local tab_table = get_tab_state_from_json(tab_id)
+		if tab_table and next(tab_table.state_table) ~= nil then
+			tab_states[tab_id] = tab_table.state_table
+		else
+			wezterm.log_info("Initializing state for tab_id: " .. tab_id)
+			tab_states[tab_id] = {
+				pane_id = -1,
+				invoker_id = -1,
+				zoomed = false,
+			}
+		end
 	end
 	return tab_states[tab_id]
 end
 
-local function get_toggle_state_file_path(tab_id)
-	local tmp_dir = wezterm.config_dir .. "/tmp"
-
-	return string.format("%s/wezterm_toggle_pane_tab_%s.json", tmp_dir, tab_id)
-end
+---@alias TabState { pane_id: integer, invoker_id: integer, zoomed: boolean }
 
 -- Write state to JSON file or delete the file if inactive/invalid.
-local function update_toggle_state_file(tab_id, pane_id)
+---@param state_table TabState The state for the tab.
+local function update_toggle_state_file(tab_id, state_table)
 	local file_path = get_toggle_state_file_path(tab_id)
 
 	-- Extract directory path
@@ -93,20 +130,23 @@ local function update_toggle_state_file(tab_id, pane_id)
 
 	local state_data = nil
 
-	if pane_id and pane_id ~= -1 then
+	if state_table.pane_id and state_table.pane_id ~= -1 then
 		-- Check if pane exists before writing state
-		local success, pane = pcall(mux.get_pane, pane_id)
+		local success, pane = pcall(mux.get_pane, state_table.pane_id)
 		if success and pane then
 			-- Prepare data for JSON
 			state_data = {
-				pane_id = pane_id,
 				tab_id = tab_id, -- Include tab_id for verification
 				active = true,
 				timestamp = os.time(), -- Optional timestamp
+				state_table = state_table,
 			}
 		else
 			wezterm.log_warn(
-				"Attempted to write state for invalid pane ID " .. pane_id .. ". Clearing file: " .. file_path
+				"Attempted to write state for invalid pane ID "
+					.. state_table.pane_id
+					.. ". Clearing file: "
+					.. file_path
 			)
 			-- Fall through to delete the file if pane doesn't exist
 		end
@@ -145,12 +185,11 @@ local function update_toggle_state_file(tab_id, pane_id)
 	end
 end
 
----@alias TabState { pane_id: integer, invoker_id: integer, zoomed: boolean }
-
 --- Resets the pane_id in the tab state.
 ---@param tab_state TabState The state for the tab.
 local function reset_tab_state(tab_state)
 	tab_state.pane_id = -1
+	tab_state.invoker_id = -1
 end
 
 --[[
@@ -210,7 +249,7 @@ function M.toggle_terminal(window, pane)
 				)
 				reset_tab_state(current_tab_state)
 
-				update_toggle_state_file(current_tab_id, nil)
+				update_toggle_state_file(current_tab_id, {})
 			end
 		else
 			-- Pane closed or pcall failed
@@ -223,7 +262,7 @@ function M.toggle_terminal(window, pane)
 			)
 			reset_tab_state(current_tab_state)
 
-			update_toggle_state_file(current_tab_id, nil)
+			update_toggle_state_file(current_tab_id, {})
 		end
 	end
 
@@ -267,7 +306,7 @@ function M.toggle_terminal(window, pane)
 				)
 				-- Invoker pane is gone or moved, reset state and retry toggle
 				reset_tab_state(current_tab_state)
-				update_toggle_state_file(current_tab_id, nil)
+				update_toggle_state_file(current_tab_id, {})
 				M.toggle_terminal(window, pane) -- Retry might create a new pane if needed
 			end
 		else
@@ -283,7 +322,7 @@ function M.toggle_terminal(window, pane)
 				then
 					current_tab_obj:set_zoomed(true)
 				end
-				update_toggle_state_file(current_tab_id, current_tab_state.pane_id)
+				update_toggle_state_file(current_tab_id, current_tab_state)
 			end
 		end
 	else
@@ -308,7 +347,7 @@ function M.toggle_terminal(window, pane)
 					.. ", Invoker ID: "
 					.. current_tab_state.invoker_id
 			)
-			update_toggle_state_file(current_tab_id, current_tab_state.pane_id)
+			update_toggle_state_file(current_tab_id, current_tab_state)
 			if M.opts.zoom.auto_zoom_toggle_terminal then
 				current_tab_obj:set_zoomed(true)
 			end
@@ -316,7 +355,7 @@ function M.toggle_terminal(window, pane)
 			wezterm.log_error("Failed to create or identify new pane correctly in tab " .. current_tab_id)
 			-- Reset state if creation failed
 			reset_tab_state(current_tab_state)
-			update_toggle_state_file(current_tab_id, nil)
+			update_toggle_state_file(current_tab_id, {})
 		end
 	end
 end
