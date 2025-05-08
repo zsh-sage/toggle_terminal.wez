@@ -26,8 +26,8 @@ end
 
 ---@param user_opts table|nil Optional table of user overrides for the toggle terminal options.
 function M.apply_to_config(config, user_opts)
-	local opts = { keywords = { "Development", "toggle_terminal" }, auto = true }
-	-- local opts = { keywords = { "https", "zsh-sage", "toggle_terminal" }, auto = true }
+	-- local opts = { keywords = { "Development", "toggle_terminal" }, auto = true }
+	local opts = { keywords = { "zsh%-sage", "toggle_terminal" }, auto = true }
 
 	dev.setup(opts)
 
