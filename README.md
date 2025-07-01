@@ -26,6 +26,7 @@ toggle_terminal.apply_to_config(config, {
 		auto_zoom_toggle_terminal = false, -- Automatically zoom toggle terminal pane
 		auto_zoom_invoker_pane = true, -- Automatically zoom invoker pane
 		remember_zoomed = true, -- Automatically re-zoom the toggle pane if it was zoomed before switching away
+	}
 })
 ```
 
