@@ -38,3 +38,4 @@ You can use [this Neovim plugin](https://github.com/zsh-sage/wezterm-send.nvim) 
 
 - [ ] Add ressurect.wezterm integration
 - [ ] Multiple toggleable panes for different keymaps
+- [ ] Toggleable windows instead of panes?
