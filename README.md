@@ -33,3 +33,8 @@ toggle_terminal.apply_to_config(config, {
 You can use [this Neovim plugin](https://github.com/zsh-sage/wezterm-send.nvim) to send commands from Neovim to this pane
 
 - For example, run `WeztermExecJson echo "hello world"` from Neovim
+
+## Todo
+
+- [ ] Add ressurect.wezterm integration
+- [ ] Multiple toggleable panes for different keymaps
